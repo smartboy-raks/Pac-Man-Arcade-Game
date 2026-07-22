@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man Arcade Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="startScreen">
+        <div id="startContent">
+            <h1>PAC-MAN</h1>
+            <p>Collect all the pellets!</p>
+            <p>Avoid the ghosts or eat power pellets to turn the tables.</p>
+            <button onclick="startNewGame()">NEW GAME (or press SPACE)</button>
+        </div>
+    </div>
+
+    <div id="gameOverScreen">
+        <div id="gameOverContent">
+            <h1 id="gameOverTitle">GAME OVER</h1>
+            <p id="gameOverScore">Score: 0</p>
+            <p id="gameOverLevel">Level: 1</p>
+            <button onclick="startNewGame()">PLAY AGAIN (or press SPACE)</button>
+        </div>
+    </div>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="420" height="420"></canvas>
+        <div id="uiPanel">
+            <div class="uiSection">
+                <div class="uiLabel">Score</div>
+                <div class="uiValue" id="scoreDisplay">0</div>
+            </div>
+            <div class="uiSection">
+                <div class="uiLabel">Level</div>
+                <div class="uiValue" id="levelDisplay">1</div>
+            </div>
+            <div class="uiSection">
+                <div class="uiLabel">Lives</div>
+                <div class="uiValue" id="livesDisplay">3</div>
+            </div>
+            <div class="uiSection">
+                <div class="uiLabel">Pellets Left</div>
+                <div class="uiValue" id="pelletsDisplay">0</div>
+            </div>
+            <div class="uiSection">
+                <div class="uiLabel">Ghosts</div>
+                <div class="ghostLegend">
+                    <div class="ghostItem">
+                        <div class="ghostColor ghostRed"></div>
+                        <span>Blinky (Red)</span>
+                    </div>
+                    <div class="ghostItem">
+                        <div class="ghostColor ghostPink"></div>
+                        <span>Pinky (Pink)</span>
+                    </div>
+                    <div class="ghostItem">
+                        <div class="ghostColor ghostCyan"></div>
+                        <span>Inky (Cyan)</span>
+                    </div>
+                    <div class="ghostItem">
+                        <div class="ghostColor ghostOrange"></div>
+                        <span>Clyde (Orange)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="uiSection" id="controls">
+                <div class="uiLabel">Controls</div>
+                ↑ ↓ ← → or WASD<br>
+                SPACE: Start/Pause<br>
+                <span style="color: #ffff00; font-weight: bold;">⏸ Power Mode: Catch ghosts!</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
