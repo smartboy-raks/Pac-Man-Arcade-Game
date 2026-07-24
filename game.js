@@ -11,6 +11,7 @@ const POWER_MODE_DURATION = 400;
 const TOTAL_LEVELS = 5;
 const GHOST_RESPAWN_FRAMES = 300; // 5 seconds at 60fps
 const HIGH_SCORE_KEY = 'pacmanHighScore';
+const BEST_TIME_KEY = 'pacmanBestTime';
 const TUNNEL_ROW = 10;
 const COLLISION_RADIUS = 0.35;
 
@@ -26,6 +27,9 @@ let gameState = {
     speedMultiplier: 1,
     ghostsKilledThisPower: 0,
     highScore: 0,
+    bestTime: 0,
+    elapsedTime: 0,
+    gameStartTime: 0,
     paused: false,
     resumeCountdown: 0,
     gameOverReason: ''
@@ -173,6 +177,25 @@ function updateHighScore() {
         gameState.highScore = gameState.score;
         localStorage.setItem(HIGH_SCORE_KEY, String(gameState.highScore));
     }
+}
+
+function loadBestTime() {
+    const savedBestTime = Number(localStorage.getItem(BEST_TIME_KEY));
+    gameState.bestTime = Number.isFinite(savedBestTime) ? savedBestTime : 0;
+}
+
+function updateBestTime() {
+    if (gameState.elapsedTime <= 0) return;
+    if (gameState.bestTime === 0 || gameState.elapsedTime < gameState.bestTime) {
+        gameState.bestTime = gameState.elapsedTime;
+        localStorage.setItem(BEST_TIME_KEY, String(gameState.bestTime));
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
 // ====== UPDATE FUNCTIONS ======
@@ -399,6 +422,7 @@ function spawnFruit() {
 function checkLevelComplete() {
     if (totalPellets === 0) {
         if (gameState.level >= TOTAL_LEVELS) {
+            updateBestTime();
             endGame('win');
         } else {
             nextLevel();
@@ -606,7 +630,9 @@ function draw() {
 
 function updateUI() {
     document.getElementById('scoreDisplay').textContent = gameState.score;
-        document.getElementById('highScoreDisplay').textContent = gameState.highScore;
+    document.getElementById('highScoreDisplay').textContent = gameState.highScore;
+    document.getElementById('timeDisplay').textContent = formatTime(gameState.elapsedTime);
+    document.getElementById('bestTimeDisplay').textContent = gameState.bestTime ? formatTime(gameState.bestTime) : '--:--';
     document.getElementById('levelDisplay').textContent = gameState.level;
     document.getElementById('livesDisplay').textContent = gameState.lives;
     document.getElementById('pelletsDisplay').textContent = totalPellets;
@@ -631,6 +657,7 @@ function gameLoop() {
 
     // Only update game logic when running and not paused
     if (gameState.gameRunning && !gameState.paused && gameState.resumeCountdown === 0) {
+        gameState.elapsedTime = Math.floor((Date.now() - gameState.gameStartTime) / 1000);
         updatePacman();
         updateGhosts();
         checkCollisions();
@@ -668,6 +695,8 @@ function startNewGame() {
     gameState.paused = false;
     gameState.resumeCountdown = 0;
     gameState.gameOverReason = '';
+    gameState.gameStartTime = Date.now();
+    gameState.elapsedTime = 0;
 
     pacman.x = 10;
     pacman.y = 15;
@@ -710,6 +739,7 @@ function setupGame() {
 
     // Initialize game objects
     loadHighScore();
+    loadBestTime();
     initGhosts();
     initPellets();
     updateGhostActivation();
