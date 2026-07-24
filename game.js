@@ -8,7 +8,7 @@ const MOVE_SPEED = 0.25; // Pac-Man speed
 const GHOST_SPEED = 0.10; // Ghosts are significantly slower than Pac-Man
 const BASE_SPEED = 0.8;
 const POWER_MODE_DURATION = 400;
-const TOTAL_LEVELS = 5;
+const TOTAL_LEVELS = 3;
 const GHOST_RESPAWN_FRAMES = 300; // 5 seconds at 60fps
 const HIGH_SCORE_KEY = 'pacmanHighScore';
 const BEST_TIME_KEY = 'pacmanBestTime';
@@ -161,7 +161,7 @@ function initGhosts() {
 }
 
 function updateGhostActivation() {
-    const activeGhostCount = Math.min(4 + Math.floor((gameState.level - 1) / 2), ghosts.length);
+    const activeGhostCount = Math.min(3 + gameState.level, ghosts.length);
     ghosts.forEach((ghost, index) => {
         ghost.active = index < activeGhostCount;
     });
@@ -331,12 +331,12 @@ function updateGhosts() {
 
             // Valid moves excluding reversal
             let possibleMoves = directions.filter(d =>
-                d.dir !== reverseDir && canUseMoveFrom(ghost.x, ghost.y, d.dx, d.dy)
+                d.dir !== reverseDir && canMoveTo(ghost.x + d.dx, ghost.y + d.dy)
             );
 
             // If completely stuck, allow reversing
             if (possibleMoves.length === 0) {
-                possibleMoves = directions.filter(d => canUseMoveFrom(ghost.x, ghost.y, d.dx, d.dy));
+                possibleMoves = directions.filter(d => canMoveTo(ghost.x + d.dx, ghost.y + d.dy));
             }
 
             if (possibleMoves.length === 0) return;
@@ -365,8 +365,6 @@ function updateGhosts() {
             ghost.x += chosen.dx;
             ghost.y += chosen.dy;
             ghost.lastDir = chosen.dir;
-
-            wrapThroughTunnel(ghost);
 
             // Mark this cell as visited so the ghost won't return until forced
             ghost.visited.add(`${ghost.x},${ghost.y}`);
