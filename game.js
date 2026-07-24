@@ -2,14 +2,15 @@
 // PAC-MAN GAME - FRESH WORKING VERSION
 // ========================================
 
-console.log("📜 game.js loaded!");
-
 // Game constants
-const GRID_SIZE = 20;
+const GRID_SIZE = 15;
 const MOVE_SPEED = 0.25; // Pac-Man speed
 const GHOST_SPEED = 0.10; // Ghosts are significantly slower than Pac-Man
 const BASE_SPEED = 0.8;
 const POWER_MODE_DURATION = 400;
+const TOTAL_LEVELS = 5;
+const GHOST_RESPAWN_FRAMES = 300; // 5 seconds at 60fps
+const HIGH_SCORE_KEY = 'pacmanHighScore';
 const COLLISION_RADIUS = 0.35;
 
 // Game variables (will be initialized after DOM ready)
@@ -23,8 +24,10 @@ let gameState = {
     powerMode: 0,
     speedMultiplier: 1,
     ghostsKilledThisPower: 0,
+    highScore: 0,
     paused: false,
-    resumeCountdown: 0
+    resumeCountdown: 0,
+    gameOverReason: ''
 };
 
 // Maze (21x21 grid)
@@ -122,11 +125,32 @@ function initPellets() {
 function initGhosts() {
     ghosts = [
         // All 4 start in valid open cells inside the ghost house area (row 8, cols 8-11)
-        { x: 8,  y: 8, color: '#ff0000', name: 'Blinky', mode: 'scatter', modeCounter: 0,   moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set() },
-        { x: 9,  y: 8, color: '#ffb8ff', name: 'Pinky',  mode: 'scatter', modeCounter: 75,  moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set() },
-        { x: 10, y: 8, color: '#00ffff', name: 'Inky',   mode: 'scatter', modeCounter: 150, moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set() },
-        { x: 11, y: 8, color: '#ffb847', name: 'Clyde',  mode: 'scatter', modeCounter: 225, moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set() }
+        { x: 8,  y: 8, color: '#ff0000', name: 'Blinky', mode: 'scatter', modeCounter: 0,   moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set(), active: true },
+        { x: 9,  y: 8, color: '#ffb8ff', name: 'Pinky',  mode: 'scatter', modeCounter: 75,  moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set(), active: true },
+        { x: 10, y: 8, color: '#00ffff', name: 'Inky',   mode: 'scatter', modeCounter: 150, moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set(), active: true },
+        { x: 11, y: 8, color: '#ffb847', name: 'Clyde',  mode: 'scatter', modeCounter: 225, moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set(), active: true },
+        { x: 12, y: 8, color: '#ff66cc', name: 'Sue',    mode: 'scatter', modeCounter: 300, moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set(), active: false },
+        { x: 13, y: 8, color: '#66ff99', name: 'Dinky',  mode: 'scatter', modeCounter: 375, moveProgress: 0, lastDir: -1, respawnTimer: 0, visited: new Set(), active: false }
     ];
+}
+
+function updateGhostActivation() {
+    const activeGhostCount = Math.min(4 + Math.floor((gameState.level - 1) / 2), ghosts.length);
+    ghosts.forEach((ghost, index) => {
+        ghost.active = index < activeGhostCount;
+    });
+}
+
+function loadHighScore() {
+    const savedHighScore = Number(localStorage.getItem(HIGH_SCORE_KEY));
+    gameState.highScore = Number.isFinite(savedHighScore) ? savedHighScore : 0;
+}
+
+function updateHighScore() {
+    if (gameState.score > gameState.highScore) {
+        gameState.highScore = gameState.score;
+        localStorage.setItem(HIGH_SCORE_KEY, String(gameState.highScore));
+    }
 }
 
 // ====== UPDATE FUNCTIONS ======
@@ -203,10 +227,11 @@ function updatePacman() {
 }
 
 // How strongly each ghost chases — kept very low so they mostly roam
-const GHOST_CHASE_WEIGHTS = [0.12, 0.08, 0.05, 0.02];
+const GHOST_CHASE_WEIGHTS = [0.12, 0.08, 0.05, 0.02, 0.04, 0.03];
 
 function updateGhosts() {
     ghosts.forEach((ghost, index) => {
+        if (!ghost.active) return;
         ghost.modeCounter++;
         // Stay in roam/scatter mode for ~8 seconds, chase mode briefly
         if (ghost.modeCounter > 480) {
@@ -301,6 +326,7 @@ function updateGhosts() {
 
 function checkCollisions() {
     ghosts.forEach(ghost => {
+        if (!ghost.active) return;
         if (ghost.respawnTimer > 0) return; // ghost is in cooldown, skip
         if (Math.abs(pacman.x - ghost.x) < 0.5 && Math.abs(pacman.y - ghost.y) < 0.5) {
             if (gameState.powerMode > 0) {
@@ -308,13 +334,13 @@ function checkCollisions() {
                 const points = 200 * Math.pow(2, gameState.ghostsKilledThisPower);
                 gameState.score += points;
                 gameState.ghostsKilledThisPower++;
-                ghost.respawnTimer = 600; // 10 seconds at 60fps
+                ghost.respawnTimer = GHOST_RESPAWN_FRAMES;
                 ghost.x = -999; // move off-screen while waiting
                 ghost.y = -999;
             } else {
                 gameState.lives--;
                 if (gameState.lives <= 0) {
-                    endGame();
+                    endGame('lose');
                 } else {
                     resetPositions();
                 }
@@ -345,28 +371,47 @@ function spawnFruit() {
 
 function checkLevelComplete() {
     if (totalPellets === 0) {
-        nextLevel();
+        if (gameState.level >= TOTAL_LEVELS) {
+            endGame('win');
+        } else {
+            nextLevel();
+        }
     }
+}
+
+function endGame(reason) {
+    gameState.gameOver = true;
+    gameState.gameRunning = false;
+    gameState.paused = false;
+    gameState.resumeCountdown = 0;
+    gameState.gameOverReason = reason;
+
+    document.getElementById('gameOverScreen').style.display = 'flex';
+    document.getElementById('gameOverTitle').textContent = reason === 'lose' ? 'GAME OVER - YOU LOSE!' : 'LEVEL COMPLETE!';
+    document.getElementById('gameOverScore').textContent = `Score: ${gameState.score}`;
+    document.getElementById('gameOverLevel').textContent = `Level: ${gameState.level}`;
 }
 
 function resetPositions() {
     pacman.x = 10;
     pacman.y = 15;
-    ghosts[0].x = 9; ghosts[0].y = 9;
-    ghosts[1].x = 10; ghosts[1].y = 10;
-    ghosts[2].x = 9; ghosts[2].y = 10;
-    ghosts[3].x = 10; ghosts[3].y = 9;
+    ghosts[0].x = 8; ghosts[0].y = 8;
+    ghosts[1].x = 9; ghosts[1].y = 8;
+    ghosts[2].x = 10; ghosts[2].y = 8;
+    ghosts[3].x = 11; ghosts[3].y = 8;
+    ghosts[4].x = 12; ghosts[4].y = 8;
+    ghosts[5].x = 13; ghosts[5].y = 8;
     gameState.powerMode = 0;
 }
 
 function nextLevel() {
     gameState.level++;
-    gameState.speedMultiplier = 1 + (gameState.level - 1) * 0.08;
     pacman.x = 10;
     pacman.y = 15;
     pacman.moveProgress = 0;
     gameState.powerMode = 0;
     resetPositions();
+    updateGhostActivation();
     initPellets();
 }
 
@@ -433,6 +478,7 @@ function draw() {
     // Draw ghosts
     const powerWarning = gameState.powerMode > 0 && gameState.powerMode < 150;
     ghosts.forEach(ghost => {
+        if (!ghost.active) return;
         if (ghost.respawnTimer > 0) return; // hidden during cooldown
         if (gameState.powerMode > 0) {
             // Rapid red/white flash as warning; steady blue otherwise
@@ -498,6 +544,7 @@ function draw() {
 
 function updateUI() {
     document.getElementById('scoreDisplay').textContent = gameState.score;
+        document.getElementById('highScoreDisplay').textContent = gameState.highScore;
     document.getElementById('levelDisplay').textContent = gameState.level;
     document.getElementById('livesDisplay').textContent = gameState.lives;
     document.getElementById('pelletsDisplay').textContent = totalPellets;
@@ -531,6 +578,7 @@ function gameLoop() {
         if (gameState.powerMode > 0) {
             gameState.powerMode--;
         }
+            updateHighScore();
     }
 
     draw();
@@ -540,15 +588,9 @@ function gameLoop() {
 
 // ====== START GAME FUNCTION ======
 function startNewGame() {
-    console.log("🎮 startNewGame() CALLED");
-    console.log("Canvas:", canvas, "CTX:", ctx);
-    
     if (!canvas || !ctx) {
-        console.error("❌ Canvas not ready! Call setupGame() first.");
         return;
     }
-    
-    console.log("🎮 Starting new game...");
     document.getElementById('startScreen').style.display = 'none';
     document.getElementById('gameOverScreen').style.display = 'none';
 
@@ -563,6 +605,7 @@ function startNewGame() {
     gameState.ghostsKilledThisPower = 0;
     gameState.paused = false;
     gameState.resumeCountdown = 0;
+    gameState.gameOverReason = '';
 
     pacman.x = 10;
     pacman.y = 15;
@@ -576,25 +619,26 @@ function startNewGame() {
         g.mode = 'scatter';
         g.respawnTimer = 0;
         g.visited = new Set();
+        g.active = i < 4;
         if (i === 0) { g.x = 8;  g.y = 8; g.modeCounter = 0;   }
         else if (i === 1) { g.x = 9;  g.y = 8; g.modeCounter = 75;  }
         else if (i === 2) { g.x = 10; g.y = 8; g.modeCounter = 150; }
-        else              { g.x = 11; g.y = 8; g.modeCounter = 225; }
+        else if (i === 3) { g.x = 11; g.y = 8; g.modeCounter = 225; }
+        else if (i === 4) { g.x = 12; g.y = 8; g.modeCounter = 300; }
+        else              { g.x = 13; g.y = 8; g.modeCounter = 375; }
     });
 
     fruit = null;
+    updateGhostActivation();
+    updateHighScore();
     initPellets();
-    console.log("✅ Game started!");
 }
 
 // ====== SETUP ON DOM READY ======
 function setupGame() {
-    console.log("🔧 Setting up game...");
-
     // Get canvas
     canvas = document.getElementById('gameCanvas');
     if (!canvas) {
-        console.error('❌ Canvas not found!');
         return;
     }
 
@@ -602,31 +646,25 @@ function setupGame() {
     COLS = canvas.width / GRID_SIZE;
     ROWS = canvas.height / GRID_SIZE;
 
-    console.log(`Canvas: ${canvas.width}x${canvas.height}, Grid: ${COLS}x${ROWS}`);
-
     // Initialize game objects
+    loadHighScore();
     initGhosts();
     initPellets();
+    updateGhostActivation();
 
     // Register spacebar listener
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' || e.key === ' ') {
             if (e.repeat) return;
             e.preventDefault();
-            
-            console.log("🎮 SPACE | gameRunning:", gameState.gameRunning, "paused:", gameState.paused, "countdown:", gameState.resumeCountdown);
 
             if (!gameState.gameRunning) {
-                // Start game from menu or game over
-                console.log("→ Starting game");
                 startNewGame();
             } else if (gameState.paused && gameState.resumeCountdown === 0) {
                 // Paused and not counting down — start countdown
-                console.log("→ Starting 3-sec countdown");
                 gameState.resumeCountdown = 180;
             } else if (!gameState.paused && gameState.resumeCountdown === 0) {
                 // Playing — pause now
-                console.log("→ PAUSED");
                 gameState.paused = true;
             }
         }
@@ -652,16 +690,12 @@ function setupGame() {
     window.startNewGame = startNewGame;
 
     // Start the game loop
-    console.log("▶️ Starting game loop...");
     gameLoop();
-    console.log("✅ Game setup complete!");
 }
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-    console.log("⏳ Waiting for DOM...");
     document.addEventListener('DOMContentLoaded', setupGame);
 } else {
-    console.log("⏳ DOM ready, setting up now...");
     setupGame();
 }
