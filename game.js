@@ -31,13 +31,14 @@ let gameState = {
     bestTime: 0,
     elapsedTime: 0,
     gameStartTime: 0,
+    levelIntroCountdown: 0,
     paused: false,
     resumeCountdown: 0,
     gameOverReason: ''
 };
 
 // Maze (21x21 grid)
-const maze = [
+const BASE_MAZE = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
     [1,0,1,1,0,1,1,1,1,0,1,0,1,1,1,1,0,1,1,0,1],
@@ -61,6 +62,8 @@ const maze = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
+let maze = [];
+
 // Pellets array
 let pellets = [];
 let totalPellets = 0;
@@ -82,6 +85,12 @@ let ghosts = [];
 // Fruit
 let fruit = null;
 const fruitTypes = ['🍓', '🍊', '🍉', '🍌', '⭐'];
+
+// Retro background music
+let musicContext = null;
+let musicTimer = null;
+let musicStep = 0;
+const MUSIC_PATTERN = [392, 523, 659, 523, 392, 523, 784, 659, 523, 659, 880, 784];
 
 // ====== UTILITY FUNCTIONS ======
 function distance(x1, y1, x2, y2) {
@@ -118,13 +127,76 @@ function wrapThroughTunnel(entity) {
     }
 }
 
-function canUseMoveFrom(x, y, dx, dy) {
-    const nextX = x + dx;
-    const nextY = y + dy;
-    if (isTunnelRow(y) && (nextX < 0 || nextX >= COLS)) {
-        return true;
+function cloneMazeLayout(layout) {
+    return layout.map(row => [...row]);
+}
+
+function mirrorMazeHoriz(layout) {
+    return layout.map(row => [...row].reverse());
+}
+
+function buildMazeForLevel(level) {
+    if (level === 1) return cloneMazeLayout(BASE_MAZE);
+
+    if (level === 2) return mirrorMazeHoriz(BASE_MAZE);
+
+    const levelThreeMaze = mirrorMazeHoriz(BASE_MAZE);
+    // Carve extra passages so level 3 feels distinctly different.
+    const carveCells = [
+        [2, 2], [2, 18], [3, 8], [3, 12], [5, 10], [6, 6], [6, 14],
+        [8, 2], [8, 18], [9, 10], [11, 10], [12, 6], [12, 14],
+        [14, 10], [15, 2], [15, 18], [16, 8], [16, 12], [18, 10]
+    ];
+    carveCells.forEach(([r, c]) => {
+        if (levelThreeMaze[r] && levelThreeMaze[r][c] === 1) {
+            levelThreeMaze[r][c] = 0;
+        }
+    });
+    return levelThreeMaze;
+}
+
+function setMazeForLevel(level) {
+    maze = buildMazeForLevel(level);
+}
+
+function playMusicNote(freq, durationMs) {
+    if (!musicContext) return;
+    const osc = musicContext.createOscillator();
+    const gain = musicContext.createGain();
+    osc.type = 'square';
+    osc.frequency.value = freq;
+
+    const now = musicContext.currentTime;
+    const duration = durationMs / 1000;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.03, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.connect(gain);
+    gain.connect(musicContext.destination);
+    osc.start(now);
+    osc.stop(now + duration);
+}
+
+function startMusic() {
+    if (musicTimer) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!musicContext) musicContext = new AudioCtx();
+    if (musicContext.state === 'suspended') musicContext.resume();
+
+    musicTimer = setInterval(() => {
+        const note = MUSIC_PATTERN[musicStep % MUSIC_PATTERN.length];
+        playMusicNote(note, 140);
+        musicStep++;
+    }, 170);
+}
+
+function stopMusic() {
+    if (musicTimer) {
+        clearInterval(musicTimer);
+        musicTimer = null;
     }
-    return canMoveTo(nextX, nextY);
 }
 
 // ====== INITIALIZATION FUNCTIONS ======
@@ -458,6 +530,7 @@ function endGame(reason) {
     document.getElementById('gameOverTitle').textContent = reason === 'lose' ? 'GAME OVER - YOU LOSE!' : 'LEVEL COMPLETE!';
     document.getElementById('gameOverScore').textContent = `Score: ${gameState.score}`;
     document.getElementById('gameOverLevel').textContent = `Level: ${gameState.level}`;
+    stopMusic();
 }
 
 function resetPositions() {
@@ -474,10 +547,12 @@ function resetPositions() {
 
 function nextLevel() {
     gameState.level++;
+    setMazeForLevel(gameState.level);
     pacman.x = 10;
     pacman.y = 15;
     pacman.moveProgress = 0;
     gameState.powerMode = 0;
+    gameState.levelIntroCountdown = 150;
     resetPositions();
     updateGhostActivation();
     initPellets();
@@ -645,6 +720,22 @@ function draw() {
             ctx.fillText('Press SPACE to resume', canvas.width / 2, canvas.height / 2 + 60);
         }
     }
+
+    // Draw level intro overlay (before each level, including level 1)
+    if (gameState.gameRunning && gameState.levelIntroCountdown > 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ffff00';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 56px Arial';
+        ctx.fillText(`LEVEL ${gameState.level}`, canvas.width / 2, canvas.height / 2 - 10);
+
+        const levelSecs = Math.ceil(gameState.levelIntroCountdown / 60);
+        ctx.font = 'bold 40px Arial';
+        ctx.fillText(levelSecs, canvas.width / 2, canvas.height / 2 + 52);
+    }
 }
 
 function updateUI() {
@@ -674,8 +765,12 @@ function gameLoop() {
         }
     }
 
-    // Only update game logic when running and not paused
-    if (gameState.gameRunning && !gameState.paused && gameState.resumeCountdown === 0) {
+    if (gameState.gameRunning && !gameState.paused && gameState.levelIntroCountdown > 0) {
+        gameState.levelIntroCountdown--;
+    }
+
+    // Only update game logic when running and not paused and not in level intro
+    if (gameState.gameRunning && !gameState.paused && gameState.resumeCountdown === 0 && gameState.levelIntroCountdown === 0) {
         gameState.elapsedTime = Math.floor((Date.now() - gameState.gameStartTime) / 1000);
         updatePacman();
         updateGhosts();
@@ -686,7 +781,7 @@ function gameLoop() {
         if (gameState.powerMode > 0) {
             gameState.powerMode--;
         }
-            updateHighScore();
+        updateHighScore();
     }
 
     draw();
@@ -713,9 +808,13 @@ function startNewGame() {
     gameState.ghostsKilledThisPower = 0;
     gameState.paused = false;
     gameState.resumeCountdown = 0;
+    gameState.levelIntroCountdown = 180;
     gameState.gameOverReason = '';
     gameState.gameStartTime = Date.now();
     gameState.elapsedTime = 0;
+
+    setMazeForLevel(gameState.level);
+    startMusic();
 
     pacman.x = 10;
     pacman.y = 15;
@@ -759,6 +858,7 @@ function setupGame() {
     // Initialize game objects
     loadHighScore();
     loadBestTime();
+    setMazeForLevel(1);
     initGhosts();
     initPellets();
     updateGhostActivation();
