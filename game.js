@@ -7,7 +7,7 @@ const GRID_SIZE = 15;
 const MOVE_SPEED = 0.25; // Pac-Man speed
 const GHOST_SPEED = 0.075; // Ghosts are about 30% of Pac-Man speed
 const BASE_SPEED = 0.8;
-const POWER_MODE_DURATION = 400;
+const POWER_MODE_DURATION = 340; // ~5.7s at 60fps (about 1 second shorter than original)
 const TOTAL_LEVELS = 3;
 const GHOST_RESPAWN_FRAMES = 1800; // 30 seconds at 60fps
 const SPECIAL_PELLET_COUNT = 6;
@@ -581,7 +581,7 @@ function draw() {
     ctx.fill();
 
     // Draw ghosts
-    const powerWarning = gameState.powerMode > 0 && gameState.powerMode < 150;
+    const powerWarning = gameState.powerMode > 0 && gameState.powerMode < 120;
     ghosts.forEach(ghost => {
         if (!ghost.active) return;
         if (ghost.respawnTimer > 0) return; // hidden during cooldown
