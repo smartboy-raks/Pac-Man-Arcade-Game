@@ -5,7 +5,7 @@
 // Game constants
 const GRID_SIZE = 15;
 const MOVE_SPEED = 0.25; // Pac-Man speed
-const GHOST_SPEED = 0.10; // Ghosts are significantly slower than Pac-Man
+const GHOST_SPEED = 0.075; // Ghosts are about 30% of Pac-Man speed
 const BASE_SPEED = 0.8;
 const POWER_MODE_DURATION = 400;
 const TOTAL_LEVELS = 3;
@@ -165,6 +165,15 @@ function updateGhostActivation() {
     ghosts.forEach((ghost, index) => {
         ghost.active = index < activeGhostCount;
     });
+}
+
+function getMazeTheme() {
+    const themes = [
+        { wallFill: 'rgba(0, 255, 255, 0.30)', wallStroke: '#00ffff', tunnelFill: 'rgba(0, 255, 255, 0.28)', accent: '#ffff00' },
+        { wallFill: 'rgba(255, 140, 0, 0.28)', wallStroke: '#ff8c00', tunnelFill: 'rgba(255, 140, 0, 0.24)', accent: '#ffdd55' },
+        { wallFill: 'rgba(120, 255, 120, 0.26)', wallStroke: '#6dff6d', tunnelFill: 'rgba(120, 255, 120, 0.22)', accent: '#ffffff' }
+    ];
+    return themes[(gameState.level - 1) % themes.length];
 }
 
 function loadHighScore() {
@@ -468,16 +477,18 @@ function nextLevel() {
 function draw() {
     if (!ctx) return;
 
+    const theme = getMazeTheme();
+
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw maze
-    ctx.strokeStyle = '#00ffff';
+    ctx.strokeStyle = theme.wallStroke;
     ctx.lineWidth = 2;
     for (let row = 0; row < ROWS; row++) {
         for (let col = 0; col < COLS; col++) {
             if (maze[row][col] === 1) {
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                ctx.fillStyle = theme.wallFill;
                 ctx.fillRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                 ctx.strokeRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE);
             }
@@ -487,7 +498,7 @@ function draw() {
     // Highlight the tunnel row and its side teleport points
     const tunnelY = TUNNEL_ROW * GRID_SIZE;
     ctx.save();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.35)';
+    ctx.strokeStyle = theme.tunnelFill;
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 8]);
     ctx.beginPath();
@@ -502,16 +513,16 @@ function draw() {
     const leftPortalX = -GRID_SIZE * 0.08;
     const rightPortalX = canvas.width - portalWidth + GRID_SIZE * 0.08;
 
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.28)';
+    ctx.fillStyle = theme.tunnelFill;
     ctx.fillRect(leftPortalX, portalY, portalWidth, portalHeight);
     ctx.fillRect(rightPortalX, portalY, portalWidth, portalHeight);
 
-    ctx.strokeStyle = '#ffff00';
+    ctx.strokeStyle = theme.accent;
     ctx.lineWidth = 2;
     ctx.strokeRect(leftPortalX, portalY, portalWidth, portalHeight);
     ctx.strokeRect(rightPortalX, portalY, portalWidth, portalHeight);
 
-    ctx.fillStyle = '#ffff00';
+    ctx.fillStyle = theme.accent;
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
