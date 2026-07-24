@@ -10,6 +10,7 @@ const BASE_SPEED = 0.8;
 const POWER_MODE_DURATION = 400;
 const TOTAL_LEVELS = 3;
 const GHOST_RESPAWN_FRAMES = 300; // 5 seconds at 60fps
+const SPECIAL_PELLET_COUNT = 6;
 const HIGH_SCORE_KEY = 'pacmanHighScore';
 const BEST_TIME_KEY = 'pacmanBestTime';
 const TUNNEL_ROW = 10;
@@ -130,21 +131,30 @@ function canUseMoveFrom(x, y, dx, dy) {
 function initPellets() {
     pellets = [];
     totalPellets = 0;
+    const openCells = [];
+
     for (let row = 0; row < ROWS; row++) {
         pellets[row] = [];
         for (let col = 0; col < COLS; col++) {
             if (maze[row][col] === 0) {
-                if ((row === 1 && col === 1) || (row === 1 && col === 19) ||
-                    (row === 19 && col === 1) || (row === 19 && col === 19)) {
-                    pellets[row][col] = 2;
-                } else {
-                    pellets[row][col] = 1;
-                }
+                pellets[row][col] = 1;
+                openCells.push({ row, col });
                 totalPellets++;
             } else {
                 pellets[row][col] = 0;
             }
         }
+    }
+
+    for (let i = openCells.length - 1; i > 0; i--) {
+        const swapIndex = Math.floor(Math.random() * (i + 1));
+        [openCells[i], openCells[swapIndex]] = [openCells[swapIndex], openCells[i]];
+    }
+
+    const specialPelletCount = Math.min(SPECIAL_PELLET_COUNT, openCells.length);
+    for (let i = 0; i < specialPelletCount; i++) {
+        const cell = openCells[i];
+        pellets[cell.row][cell.col] = 2;
     }
 }
 
