@@ -18,9 +18,9 @@ body {
 
 #gameContainer {
     display: flex;
-    gap: 14px;
+    gap: 10px;
     background-color: #0a0e27;
-    padding: 12px;
+    padding: 8px;
     border-radius: 10px;
     align-items: stretch;
     justify-content: center;
@@ -35,10 +35,11 @@ body {
     background-color: #000;
     display: block;
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-    width: min(calc(100vh - 24px), calc(100vw - 290px));
-    height: min(calc(100vh - 24px), calc(100vw - 290px));
-    max-width: calc(100vw - 290px);
-    max-height: calc(100vh - 24px);
+    width: calc(100vw - 220px);
+    height: calc(100vh - 16px);
+    max-width: calc(100vw - 220px);
+    max-height: calc(100vh - 16px);
+    min-width: 480px;
     flex: 1 1 auto;
 }
 
@@ -46,13 +47,13 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 250px;
+    width: 190px;
     background: rgba(0, 255, 255, 0.05);
     padding: 12px;
     border: 2px solid #00ffff;
     border-radius: 8px;
     box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
-    flex: 0 0 250px;
+    flex: 0 0 190px;
     overflow: hidden;
 }
 
@@ -64,7 +65,7 @@ body {
 }
 
 .uiLabel {
-    font-size: 11px;
+    font-size: 10px;
     color: #00ffff;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -73,7 +74,7 @@ body {
 }
 
 .uiValue {
-    font-size: 20px;
+    font-size: 18px;
     color: #ffff00;
     font-weight: bold;
     text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
@@ -89,7 +90,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: 10px;
 }
 
 .ghostColor {
@@ -104,8 +105,8 @@ body {
 .ghostOrange { background-color: #ffb847; }
 
 #controls {
-    font-size: 10px;
-    line-height: 1.45;
+    font-size: 9px;
+    line-height: 1.35;
     color: #00ffff;
 }
 
@@ -125,12 +126,12 @@ body {
 #gameOverContent {
     text-align: center;
     color: #ffff00;
-    font-size: 48px;
+    font-size: 42px;
     text-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
 }
 
 #gameOverContent h1 {
-    font-size: 72px;
+    font-size: 64px;
     margin-bottom: 20px;
     text-shadow: 0 0 30px rgba(255, 255, 0, 1);
 }
@@ -177,22 +178,22 @@ body {
 }
 
 #startContent h1 {
-    font-size: 80px;
+    font-size: 72px;
     margin-bottom: 20px;
     text-shadow: 0 0 30px rgba(255, 255, 0, 1);
     animation: pulse 1s infinite;
 }
 
 #startContent p {
-    font-size: 16px;
+    font-size: 15px;
     margin: 8px 0;
     color: #00ffff;
 }
 
 #startContent button {
     margin-top: 24px;
-    padding: 12px 30px;
-    font-size: 16px;
+    padding: 11px 26px;
+    font-size: 15px;
     background-color: #00ffff;
     color: #000;
     border: 3px solid #ffff00;
@@ -244,6 +245,7 @@ body {
         height: auto;
         max-width: 100%;
         max-height: none;
+        min-width: 0;
     }
 
     #uiPanel {

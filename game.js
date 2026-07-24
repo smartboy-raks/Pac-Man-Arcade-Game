@@ -11,6 +11,7 @@ const POWER_MODE_DURATION = 400;
 const TOTAL_LEVELS = 5;
 const GHOST_RESPAWN_FRAMES = 300; // 5 seconds at 60fps
 const HIGH_SCORE_KEY = 'pacmanHighScore';
+const TUNNEL_ROW = 10;
 const COLLISION_RADIUS = 0.35;
 
 // Game variables (will be initialized after DOM ready)
@@ -100,6 +101,27 @@ function canMoveTo(x, y) {
     return true;
 }
 
+function isTunnelRow(y) {
+    return Math.round(y) === TUNNEL_ROW;
+}
+
+function wrapThroughTunnel(entity) {
+    if (entity.x < 0) {
+        entity.x = COLS - 1;
+    } else if (entity.x >= COLS) {
+        entity.x = 0;
+    }
+}
+
+function canUseMoveFrom(x, y, dx, dy) {
+    const nextX = x + dx;
+    const nextY = y + dy;
+    if (isTunnelRow(y) && (nextX < 0 || nextX >= COLS)) {
+        return true;
+    }
+    return canMoveTo(nextX, nextY);
+}
+
 // ====== INITIALIZATION FUNCTIONS ======
 function initPellets() {
     pellets = [];
@@ -171,7 +193,11 @@ function updatePacman() {
             case 3: newY -= 1; break;
         }
 
-        if (canMoveTo(newX, newY)) {
+        if (isTunnelRow(pacman.y) && (newX < 0 || newX >= COLS)) {
+            pacman.x = newX < 0 ? COLS - 1 : 0;
+            pacman.y = TUNNEL_ROW;
+            pacman.direction = pacman.nextDirection;
+        } else if (canMoveTo(newX, newY)) {
             pacman.x = newX;
             pacman.y = newY;
             pacman.direction = pacman.nextDirection;
@@ -185,15 +211,18 @@ function updatePacman() {
                 case 2: newX -= 1; break;
                 case 3: newY -= 1; break;
             }
-            if (canMoveTo(newX, newY)) {
+
+            if (isTunnelRow(pacman.y) && (newX < 0 || newX >= COLS)) {
+                pacman.x = newX < 0 ? COLS - 1 : 0;
+                pacman.y = TUNNEL_ROW;
+            } else if (canMoveTo(newX, newY)) {
                 pacman.x = newX;
                 pacman.y = newY;
             }
         }
 
         // Handle wrapping at edges
-        if (pacman.x < 0) pacman.x = COLS - 1;
-        if (pacman.x >= COLS) pacman.x = 0;
+        wrapThroughTunnel(pacman);
 
         // Collect pellets
         const row = Math.round(pacman.y);
@@ -279,12 +308,12 @@ function updateGhosts() {
 
             // Valid moves excluding reversal
             let possibleMoves = directions.filter(d =>
-                d.dir !== reverseDir && canMoveTo(ghost.x + d.dx, ghost.y + d.dy)
+                d.dir !== reverseDir && canUseMoveFrom(ghost.x, ghost.y, d.dx, d.dy)
             );
 
             // If completely stuck, allow reversing
             if (possibleMoves.length === 0) {
-                possibleMoves = directions.filter(d => canMoveTo(ghost.x + d.dx, ghost.y + d.dy));
+                possibleMoves = directions.filter(d => canUseMoveFrom(ghost.x, ghost.y, d.dx, d.dy));
             }
 
             if (possibleMoves.length === 0) return;
@@ -314,12 +343,10 @@ function updateGhosts() {
             ghost.y += chosen.dy;
             ghost.lastDir = chosen.dir;
 
+            wrapThroughTunnel(ghost);
+
             // Mark this cell as visited so the ghost won't return until forced
             ghost.visited.add(`${ghost.x},${ghost.y}`);
-
-            // Handle wrapping at edges
-            if (ghost.x < 0) ghost.x = COLS - 1;
-            if (ghost.x >= COLS) ghost.x = 0;
         }
     });
 }
@@ -434,6 +461,41 @@ function draw() {
             }
         }
     }
+
+    // Highlight the tunnel row and its side teleport points
+    const tunnelY = TUNNEL_ROW * GRID_SIZE;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(GRID_SIZE, tunnelY + GRID_SIZE / 2);
+    ctx.lineTo(canvas.width - GRID_SIZE, tunnelY + GRID_SIZE / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const portalWidth = GRID_SIZE * 1.15;
+    const portalHeight = GRID_SIZE * 1.15;
+    const portalY = tunnelY - GRID_SIZE * 0.08;
+    const leftPortalX = -GRID_SIZE * 0.08;
+    const rightPortalX = canvas.width - portalWidth + GRID_SIZE * 0.08;
+
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.28)';
+    ctx.fillRect(leftPortalX, portalY, portalWidth, portalHeight);
+    ctx.fillRect(rightPortalX, portalY, portalWidth, portalHeight);
+
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(leftPortalX, portalY, portalWidth, portalHeight);
+    ctx.strokeRect(rightPortalX, portalY, portalWidth, portalHeight);
+
+    ctx.fillStyle = '#ffff00';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('↔', GRID_SIZE / 2, tunnelY + GRID_SIZE / 2);
+    ctx.fillText('↔', canvas.width - GRID_SIZE / 2, tunnelY + GRID_SIZE / 2);
+    ctx.restore();
 
     // Draw pellets
     for (let row = 0; row < ROWS; row++) {
